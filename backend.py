@@ -185,6 +185,7 @@ def _thumb(thumbs):
 
 COOKIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
 COOKIES_OPTS = {"cookiefile": COOKIES_FILE} if os.path.exists(COOKIES_FILE) else {}
+print(f"Cookies file: {COOKIES_FILE} — exists: {os.path.exists(COOKIES_FILE)}", flush=True)
 
 def _yt_opts(extra=None):
     opts = {"quiet": True, "no_warnings": True, **COOKIES_OPTS}
