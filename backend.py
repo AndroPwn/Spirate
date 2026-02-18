@@ -15,9 +15,9 @@ Run:
     python backend.py
 """
 
-import os, re, uuid, logging, threading
+import os, re, uuid, logging, threading, zipfile, io
 from pathlib import Path
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, Response
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from pytubefix import Search
@@ -80,10 +80,7 @@ def get_tracks(url: str) -> tuple[str, list[dict]]:
     if kind == "spotify_track":    return _sp_track(url)
     if kind == "spotify_album":    return _sp_album(url)
     if kind == "spotify_playlist":
-        raise ValueError(
-            "Spotify playlists are blocked by their API for dev apps. "
-            "Open the playlist on music.youtube.com and paste that URL instead."
-        )
+        return _sp_playlist(url)
     if kind in ("ytmusic_playlist", "yt_playlist"): return _yt_playlist(url)
     if kind in ("ytmusic_track",    "yt_track"):    return _yt_single(url)
     raise ValueError(f"Unhandled type: {kind}")
@@ -104,7 +101,29 @@ def _sp_track(url):
     }]
 
 
-def _sp_album(url):
+def _sp_playlist(url):
+    sid      = re.search(r"playlist/([A-Za-z0-9]+)", url).group(1)
+    playlist = sp.playlist(sid)
+    name     = playlist["name"]
+    art      = playlist["images"][0]["url"] if playlist["images"] else None
+    tracks   = []
+    results  = sp.playlist_tracks(sid)
+    while results:
+        for item in results["items"]:
+            t = item.get("track")
+            if not t or not t.get("id"): continue
+            artists  = ", ".join(a["name"] for a in t["artists"])
+            track_art = t["album"]["images"][0]["url"] if t["album"]["images"] else art
+            tracks.append({
+                "title":        t["name"],
+                "artist":       artists,
+                "album":        t["album"]["name"],
+                "art_url":      track_art,
+                "duration_ms":  t["duration_ms"],
+                "search_query": f"{t['name']} {artists}",
+            })
+        results = sp.next(results) if results["next"] else None
+    return name, tracks
     sid   = re.search(r"album/([A-Za-z0-9]+)", url).group(1)
     album = sp.album(sid)
     art   = album["images"][0]["url"] if album["images"] else None
@@ -304,6 +323,30 @@ def cancel(job_id):
     if not job: return jsonify({"error": "Not found"}), 404
     job["cancelled"] = True
     return jsonify({"cancelled": True})
+
+
+@app.get("/download-zip/<job_id>")
+def download_zip(job_id):
+    job = jobs.get(job_id)
+    if not job: return jsonify({"error": "Not found"}), 404
+    if job["status"] != "done": return jsonify({"error": "Job not done yet"}), 400
+
+    files = job.get("files", [])
+    if not files: return jsonify({"error": "No files"}), 404
+
+    zip_name = safe(job["name"]) + ".zip"
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in files:
+            path = Path(f["path"])
+            if path.exists():
+                zf.write(path, path.name)
+    buf.seek(0)
+    return Response(
+        buf.getvalue(),
+        mimetype="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={zip_name}"}
+    )
 
 
 if __name__ == "__main__":
