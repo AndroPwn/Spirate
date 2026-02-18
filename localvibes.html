@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LocalVibes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --accent: #1DB954;
+  --accent-dim: rgba(29,185,84,0.15);
+  --accent-glow: rgba(29,185,84,0.3);
+  --bg: #060606;
+  --surface: #111111;
+  --surface2: #1a1a1a;
+  --surface3: #222222;
+  --border: rgba(255,255,255,0.07);
+  --text: #f0f0f0;
+  --muted: #888;
+  --dim: #444;
+  --red: #e05555;
+  --yellow: #f5c842;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Syne', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Noise overlay ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 9999;
+  opacity: 0.4;
+}
+
+/* ── Layout ── */
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.logo {
+  padding: 32px 28px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  width: 36px; height: 36px;
+  background: var(--accent);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-icon svg { color: #000; }
+
+.logo-text {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.logo-sub {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* Backend status */
+.backend-status {
+  margin: 20px 28px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: background 0.3s;
+  flex-shrink: 0;
+}
+.status-dot.online { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+.status-dot.offline { background: var(--red); }
+
+/* Nav */
+.nav {
+  padding: 24px 16px;
+  flex: 1;
+}
+
+.nav-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+  padding: 0 12px;
+  margin-bottom: 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--accent-dim); color: var(--accent); }
+.nav-item svg { flex-shrink: 0; }
+
+/* Download button in sidebar */
+.sidebar-download-btn {
+  margin: 0 16px 24px;
+  padding: 14px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+  width: calc(100% - 32px);
+}
+.sidebar-download-btn:hover { background: #1ed760; transform: translateY(-1px); }
+
+/* Stats */
+.sidebar-stats {
+  border-top: 1px solid var(--border);
+  padding: 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+}
+.stat-row span:last-child {
+  font-family: 'Space Mono', monospace;
+  color: var(--text);
+  font-size: 11px;
+}
+
+/* Backend URL setting */
+.backend-setting {
+  padding: 16px 28px;
+  border-top: 1px solid var(--border);
+}
+.backend-setting label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+}
+.backend-setting input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  outline: none;
+}
+.backend-setting input:focus { border-color: var(--accent); }
+
+/* ── Main content ── */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Page header ── */
+.page-header {
+  padding: 40px 48px 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.page-title {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+
+.page-title span {
+  color: var(--accent);
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-ghost {
+  padding: 10px 18px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex; align-items: center; gap: 8px;
+}
+.btn-ghost:hover { background: var(--surface3); border-color: rgba(255,255,255,0.15); }
+
+/* ── Search bar ── */
+.search-bar-wrap {
+  padding: 28px 48px 0;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0 16px;
+  transition: border-color 0.2s;
+}
+.search-bar:focus-within { border-color: rgba(255,255,255,0.2); }
+.search-bar svg { color: var(--dim); flex-shrink: 0; }
+.search-bar input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 14px 0;
+}
+.search-bar input::placeholder { color: var(--dim); font-weight: 400; }
+
+.filter-chips {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.chip {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Space Mono', monospace;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  transition: all 0.15s;
+}
+.chip:hover { border-color: var(--muted); color: var(--text); }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #000; }
+
+/* ── Active jobs section ── */
+.jobs-section {
+  padding: 24px 48px 0;
+}
+
+.section-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.job-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.job-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--accent-dim) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.job-card.running::before { opacity: 1; }
+
+.job-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.job-name {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 65%;
+}
+
+.job-meta {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.job-badge {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'Space Mono', monospace;
+}
+.job-badge.running { background: rgba(245,200,66,0.15); color: var(--yellow); }
+.job-badge.done { background: var(--accent-dim); color: var(--accent); }
+.job-badge.failed { background: rgba(224,85,85,0.15); color: var(--red); }
+
+.job-progress-track {
+  height: 4px;
+  background: var(--surface3);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+  position: relative;
+}
+
+.job-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  position: relative;
+}
+
+.job-progress-fill::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 60px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+.job-card:not(.running) .job-progress-fill::after { display: none; }
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.job-track-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-cancel {
+  background: none;
+  border: none;
+  color: var(--dim);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.job-cancel:hover { color: var(--red); background: rgba(224,85,85,0.1); }
+
+/* ── Library grid ── */
+.library-section {
+  padding: 28px 48px 48px;
+  flex: 1;
+}
+
+.library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.song-count {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.sort-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: var(--muted);
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  outline: none;
+  cursor: pointer;
+}
+.sort-select:focus { border-color: var(--accent); }
+
+/* Table */
+.song-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.song-table thead tr {
+  border-bottom: 1px solid var(--border);
+}
+
+.song-table thead th {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--dim);
+  text-transform: uppercase;
+  padding: 0 16px 12px;
+  text-align: left;
+  font-weight: 400;
+}
+
+.song-table thead th:first-child { padding-left: 4px; width: 44px; }
+.song-table thead th.col-dur { text-align: right; width: 70px; }
+.song-table thead th.col-actions { width: 44px; }
+
+.song-row {
+  border-radius: 10px;
+  transition: background 0.12s;
+  cursor: pointer;
+}
+
+.song-row:hover { background: var(--surface); }
+.song-row:hover .row-actions { opacity: 1; }
+
+.song-row td {
+  padding: 8px 16px;
+}
+.song-row td:first-child {
+  padding-left: 4px;
+  border-radius: 10px 0 0 10px;
+}
+.song-row td:last-child {
+  border-radius: 0 10px 10px 0;
+}
+
+.row-num {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  color: var(--dim);
+  text-align: center;
+  width: 44px;
+}
+
+.row-art {
+  width: 44px; height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface2);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.row-art img { width: 100%; height: 100%; object-fit: cover; }
+.row-art-placeholder {
+  width: 44px; height: 44px;
+  border-radius: 8px;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--dim);
+  flex-shrink: 0;
+}
+
+.song-info-cell {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.song-text-wrap { min-width: 0; }
+
+.row-title {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.row-artist {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-album {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.row-dur {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.row-actions {
+  opacity: 0;
+  transition: opacity 0.15s;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.row-action-btn {
+  background: none;
+  border: none;
+  color: var(--dim);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+}
+.row-action-btn:hover { color: var(--red); background: rgba(224,85,85,0.1); }
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 80px 0;
+  color: var(--dim);
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.3;
+}
+
+.empty-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.empty-sub {
+  font-size: 14px;
+  color: var(--dim);
+}
+
+/* ── Download modal ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 36px;
+  width: 520px;
+  max-width: calc(100vw - 48px);
+  transform: translateY(12px) scale(0.98);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 40px 120px rgba(0,0,0,0.8);
+}
+
+.modal-overlay.open .modal {
+  transform: translateY(0) scale(1);
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.modal-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.modal-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.modal-close {
+  background: var(--surface2);
+  border: none;
+  color: var(--muted);
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.modal-close:hover { background: var(--surface3); color: var(--text); }
+
+/* URL input */
+.url-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 0 16px;
+  transition: border-color 0.2s;
+  margin-bottom: 12px;
+}
+.url-input-wrap:focus-within { border-color: var(--accent); }
+.url-input-wrap svg { color: var(--accent); flex-shrink: 0; }
+.url-input-wrap input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  padding: 16px 0;
+}
+.url-input-wrap input::placeholder { color: var(--dim); }
+
+/* Supported sources */
+.source-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.source-chip {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-family: 'Space Mono', monospace;
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+
+.source-chip.yt { border-color: rgba(255,80,80,0.3); color: #ff6060; }
+.source-chip.sp { border-color: rgba(29,185,84,0.3); color: var(--accent); }
+.source-chip.ytm { border-color: rgba(255,80,80,0.3); color: #ff9060; }
+
+/* Metadata preview */
+.metadata-preview {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  display: none;
+}
+.metadata-preview.visible { display: block; }
+.meta-name {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.meta-count {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.meta-count span { color: var(--accent); }
+
+/* Buttons */
+.modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-primary {
+  flex: 1;
+  padding: 15px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-primary:hover:not(:disabled) { background: #1ed760; transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  padding: 15px 20px;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-secondary:hover { background: var(--surface3); }
+
+/* Error / status messages */
+.msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.msg.error { background: rgba(224,85,85,0.1); border: 1px solid rgba(224,85,85,0.2); color: var(--red); }
+.msg.info { background: var(--accent-dim); border: 1px solid rgba(29,185,84,0.2); color: var(--accent); }
+.msg.hidden { display: none; }
+
+/* Toast */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.toast {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideIn 0.3s ease, fadeOut 0.3s ease 3.7s forwards;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  max-width: 360px;
+}
+.toast.success { border-color: rgba(29,185,84,0.3); }
+.toast.error { border-color: rgba(224,85,85,0.3); }
+.toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.toast.success .toast-dot { background: var(--accent); }
+.toast.error .toast-dot { background: var(--red); }
+
+@keyframes slideIn {
+  from { transform: translateX(110%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes fadeOut {
+  to { opacity: 0; transform: translateX(110%); }
+}
+
+/* Loading spinner */
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(0,0,0,0.2);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .page-header { padding: 24px 20px 0; }
+  .search-bar-wrap { padding: 16px 20px 0; }
+  .jobs-section { padding: 20px 20px 0; }
+  .library-section { padding: 20px 20px 40px; }
+  .page-title { font-size: 28px; }
+  .filter-chips { display: none; }
+  .mobile-nav-bar { display: flex; }
+}
+
+.mobile-nav-bar {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 12px 24px;
+  justify-content: space-around;
+  z-index: 100;
+}
+
+.mob-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--dim);
+  cursor: pointer;
+  font-size: 10px;
+  font-family: 'Space Mono', monospace;
+  background: none;
+  border: none;
+  transition: color 0.15s;
+}
+.mob-btn.active { color: var(--accent); }
+.mob-btn:hover { color: var(--text); }
+
+/* Animate library rows in */
+.song-row {
+  animation: rowIn 0.2s ease both;
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">
+        <div class="logo-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9 18V5l12-2v13M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm12-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-text">LocalVibes</div>
+          <div class="logo-sub">Music Downloader</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="backend-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Checking backend…</span>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-label">Library</div>
+      <div class="nav-item active" onclick="showView('library')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        </svg>
+        All Songs
+      </div>
+      <div class="nav-item" onclick="showView('jobs')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+        </svg>
+        Downloads
+        <span id="activeJobCount" style="margin-left:auto;background:var(--accent);color:#000;border-radius:10px;padding:1px 8px;font-size:10px;font-family:'Space Mono',monospace;display:none"></span>
+      </div>
+
+      <div class="nav-label" style="margin-top:20px">Actions</div>
+      <div class="nav-item" onclick="openModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        Add Download
+      </div>
+      <div class="nav-item" onclick="refreshLibrary()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        Refresh Library
+      </div>
+    </nav>
+
+    <div class="sidebar-stats" id="sidebarStats">
+      <div class="stat-row"><span>Total songs</span><span id="statSongs">—</span></div>
+      <div class="stat-row"><span>Total size</span><span id="statSize">—</span></div>
+    </div>
+
+    <div class="backend-setting">
+      <label>Backend URL</label>
+      <input type="text" id="backendUrlInput" value="http://localhost:8888" onchange="updateBackendUrl(this.value)" />
+    </div>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+    <!-- Page header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Your <span>Library</span></h1>
+      </div>
+      <div class="header-actions">
+        <button class="btn-ghost" onclick="refreshLibrary()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+          Refresh
+        </button>
+        <button class="btn-ghost" onclick="openModal()" style="background:var(--accent-dim);border-color:rgba(29,185,84,0.3);color:var(--accent)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add Download
+        </button>
+      </div>
+    </div>
+
+    <!-- Search + filter -->
+    <div class="search-bar-wrap">
+      <div class="search-bar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Search songs, artists, albums…" oninput="filterLibrary()">
+        <div class="filter-chips">
+          <button class="chip active" onclick="setFilter('all', this)">All</button>
+          <button class="chip" onclick="setFilter('title', this)">Title</button>
+          <button class="chip" onclick="setFilter('artist', this)">Artist</button>
+          <button class="chip" onclick="setFilter('album', this)">Album</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active jobs -->
+    <div class="jobs-section" id="jobsSection" style="display:none">
+      <div class="section-title">Active Downloads</div>
+      <div class="jobs-list" id="jobsList"></div>
+    </div>
+
+    <!-- Library -->
+    <div class="library-section">
+      <div class="library-header">
+        <span class="song-count" id="songCount">Loading…</span>
+        <select class="sort-select" onchange="sortLibrary(this.value)">
+          <option value="date">Sort: Date Added</option>
+          <option value="title">Sort: Title A–Z</option>
+          <option value="artist">Sort: Artist A–Z</option>
+          <option value="album">Sort: Album</option>
+          <option value="size">Sort: File Size</option>
+        </select>
+      </div>
+
+      <div id="libraryContent">
+        <div class="empty-state">
+          <div class="empty-icon">🎵</div>
+          <div class="empty-title">Loading library…</div>
+          <div class="empty-sub">Connecting to backend</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Mobile nav -->
+<div class="mobile-nav-bar">
+  <button class="mob-btn active" onclick="openModal()">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+    </svg>
+    Download
+  </button>
+  <button class="mob-btn" onclick="refreshLibrary()">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+    </svg>
+    Library
+  </button>
+</div>
+
+<!-- ── DOWNLOAD MODAL ── -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Add Download</div>
+        <div class="modal-sub">Paste a YouTube or Spotify URL</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="url-input-wrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>
+      <input type="url" id="urlInput" placeholder="https://www.youtube.com/playlist?list=..." oninput="onUrlInput()" onkeydown="handleUrlKeydown(event)">
+    </div>
+
+    <div class="source-chips">
+      <div class="source-chip yt">YouTube Playlist</div>
+      <div class="source-chip yt">YouTube Track</div>
+      <div class="source-chip ytm">YT Music</div>
+      <div class="source-chip sp">Spotify Track</div>
+      <div class="source-chip sp">Spotify Album</div>
+    </div>
+
+    <div class="msg hidden" id="modalMsg"></div>
+
+    <div class="metadata-preview" id="metaPreview">
+      <div class="meta-name" id="metaName">—</div>
+      <div class="meta-count" id="metaCount">—</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="fetchMetadata()" id="previewBtn">Preview</button>
+      <button class="btn-primary" onclick="startDownload()" id="downloadBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let BACKEND = 'https://spirate.onrender.com';
+let library = [];
+let filteredLibrary = [];
+let activeJobs = {};       // jobId → { name, done, total, status, currentTrack }
+let filterMode = 'all';
+let sortMode = 'date';
+let jobPoller = null;
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const savedUrl = localStorage.getItem('localvibes_backend');
+  if (savedUrl) {
+    BACKEND = savedUrl;
+    document.getElementById('backendUrlInput').value = savedUrl;
+  } else {
+    BACKEND = 'https://spirate.onrender.com';
+    document.getElementById('backendUrlInput').value = BACKEND;
+  }
+  checkBackend();
+  refreshLibrary();
+});
+
+function updateBackendUrl(val) {
+  BACKEND = val.trim().replace(/\/$/, '');
+  localStorage.setItem('localvibes_backend', BACKEND);
+  checkBackend();
+  refreshLibrary();
+}
+
+// ── Backend health check ───────────────────────────────────────────────────────
+async function checkBackend() {
+  const dot  = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  try {
+    const r = await fetch(`${BACKEND}/health`, { signal: AbortSignal.timeout(4000) });
+    if (r.ok) {
+      dot.className  = 'status-dot online';
+      text.textContent = 'Backend online';
+    } else throw new Error();
+  } catch {
+    dot.className  = 'status-dot offline';
+    text.textContent = 'Backend offline';
+  }
+}
+
+// ── Library ────────────────────────────────────────────────────────────────────
+async function refreshLibrary() {
+  try {
+    const r = await fetch(`${BACKEND}/library`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    library = data.files || [];
+    applySort();
+    updateStats(data);
+    renderLibrary();
+  } catch (e) {
+    document.getElementById('libraryContent').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-title">Can't reach backend</div>
+        <div class="empty-sub">Make sure <code style="font-family:'Space Mono',monospace;color:var(--accent)">python backend.py</code> is running<br>and the URL is correct in the sidebar</div>
+      </div>`;
+    document.getElementById('songCount').textContent = '—';
+  }
+}
+
+function updateStats(data) {
+  document.getElementById('statSongs').textContent = data.total ?? '—';
+  const totalMb = (data.files || []).reduce((a, f) => a + (f.size_mb || 0), 0);
+  document.getElementById('statSize').textContent = totalMb > 1000
+    ? `${(totalMb/1000).toFixed(1)} GB`
+    : `${totalMb.toFixed(0)} MB`;
+}
+
+function applySort() {
+  const sorted = [...library];
+  switch (sortMode) {
+    case 'title':  sorted.sort((a,b) => nameOf(a).localeCompare(nameOf(b))); break;
+    case 'artist': sorted.sort((a,b) => artistOf(a).localeCompare(artistOf(b))); break;
+    case 'album':  sorted.sort((a,b) => a.folder.localeCompare(b.folder)); break;
+    case 'size':   sorted.sort((a,b) => (b.size_mb||0) - (a.size_mb||0)); break;
+    default: break; // date = server order
+  }
+  filteredLibrary = sorted;
+}
+
+function nameOf(f) {
+  // "Artist - Title" → "Title"
+  const parts = f.name.split(' - ');
+  return parts.length > 1 ? parts.slice(1).join(' - ') : f.name;
+}
+
+function artistOf(f) {
+  const parts = f.name.split(' - ');
+  return parts.length > 1 ? parts[0] : '';
+}
+
+function sortLibrary(val) {
+  sortMode = val;
+  applySort();
+  filterLibrary();
+}
+
+function setFilter(mode, el) {
+  filterMode = mode;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  filterLibrary();
+}
+
+function filterLibrary() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  let results = filteredLibrary;
+  if (q) {
+    results = filteredLibrary.filter(f => {
+      const name   = f.name.toLowerCase();
+      const folder = f.folder.toLowerCase();
+      if (filterMode === 'title')  return nameOf(f).toLowerCase().includes(q);
+      if (filterMode === 'artist') return artistOf(f).toLowerCase().includes(q);
+      if (filterMode === 'album')  return folder.includes(q);
+      return name.includes(q) || folder.includes(q);
+    });
+  }
+  renderLibraryRows(results);
+}
+
+function renderLibrary() {
+  filterLibrary();
+}
+
+function renderLibraryRows(songs) {
+  const count = document.getElementById('songCount');
+  count.textContent = `${songs.length} song${songs.length !== 1 ? 's' : ''}`;
+
+  if (songs.length === 0) {
+    document.getElementById('libraryContent').innerHTML = library.length === 0
+      ? `<div class="empty-state">
+           <div class="empty-icon">🎵</div>
+           <div class="empty-title">Library is empty</div>
+           <div class="empty-sub">Click <strong>Add Download</strong> and paste a YouTube playlist or Spotify URL</div>
+         </div>`
+      : `<div class="empty-state">
+           <div class="empty-icon">🔍</div>
+           <div class="empty-title">No results found</div>
+           <div class="empty-sub">Try a different search term</div>
+         </div>`;
+    return;
+  }
+
+  const rows = songs.map((f, i) => {
+    const parts = f.name.split(' - ');
+    const artist = parts.length > 1 ? parts[0] : '—';
+    const title  = parts.length > 1 ? parts.slice(1).join(' - ') : f.name;
+    const num    = (i + 1).toString().padStart(2, '0');
+
+    return `
+      <tr class="song-row" style="animation-delay:${Math.min(i * 15, 300)}ms">
+        <td><div class="row-num">${num}</div></td>
+        <td>
+          <div class="song-info-cell">
+            <div class="row-art-placeholder">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 18V5l12-2v13M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm12-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+              </svg>
+            </div>
+            <div class="song-text-wrap">
+              <div class="row-title" title="${esc(title)}">${esc(title)}</div>
+              <div class="row-artist">${esc(artist)}</div>
+            </div>
+          </div>
+        </td>
+        <td><div class="row-album" title="${esc(f.folder)}">${esc(f.folder)}</div></td>
+        <td><div class="row-dur">${f.size_mb ? f.size_mb + ' MB' : '—'}</div></td>
+        <td>
+          <div class="row-actions">
+            <button class="row-action-btn" title="Delete" onclick="deleteSong('${esc(f.path)}', event)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+              </svg>
+            </button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('libraryContent').innerHTML = `
+    <table class="song-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Song</th>
+          <th>Folder / Album</th>
+          <th>Size</th>
+          <th class="col-actions"></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function deleteSong(path, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this file permanently?')) return;
+  try {
+    // Backend doesn't have a delete-file route by default; we'll call library again
+    // For now just refresh — user can delete manually or you can add a route
+    toast('File deletion requires a backend route — coming soon!', 'error');
+  } catch { }
+}
+
+// ── Jobs ───────────────────────────────────────────────────────────────────────
+function renderJobs() {
+  const jobIds = Object.keys(activeJobs);
+  const section = document.getElementById('jobsSection');
+  const list    = document.getElementById('jobsList');
+  const badge   = document.getElementById('activeJobCount');
+
+  const running = jobIds.filter(id => activeJobs[id].status === 'running');
+
+  if (running.length > 0) {
+    badge.style.display = 'inline-block';
+    badge.textContent = running.length;
+  } else {
+    badge.style.display = 'none';
+  }
+
+  if (jobIds.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+
+  list.innerHTML = jobIds.map(id => {
+    const j    = activeJobs[id];
+    const pct  = j.total > 0 ? Math.round((j.done / j.total) * 100) : 0;
+    const badge_class = j.status === 'running' ? 'running' : (j.status === 'done' ? 'done' : 'failed');
+    const badge_txt   = j.status === 'running' ? 'Downloading' : (j.status === 'done' ? 'Done' : 'Failed');
+
+    return `
+      <div class="job-card ${j.status === 'running' ? 'running' : ''}" id="job-${id}">
+        <div class="job-header">
+          <div class="job-name">${esc(j.name)}</div>
+          <div class="job-meta">
+            <span>${j.done}/${j.total}</span>
+            <span>${pct}%</span>
+            <span class="job-badge ${badge_class}">${badge_txt}</span>
+            ${j.status === 'running' ? `<button class="job-cancel" onclick="cancelJob('${id}')" title="Cancel">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>` : ''}
+          </div>
+        </div>
+        <div class="job-progress-track">
+          <div class="job-progress-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="job-track-name">${j.currentTrack ? '↳ ' + esc(j.currentTrack) : (j.status === 'done' ? '✓ Completed' : 'Starting…')}</div>
+      </div>`;
+  }).join('');
+}
+
+async function cancelJob(id) {
+  try {
+    await fetch(`${BACKEND}/job/${id}`, { method: 'DELETE' });
+    toast('Download cancelled', 'error');
+  } catch {}
+}
+
+function startJobPolling(jobId, name) {
+  activeJobs[jobId] = { name, done: 0, total: 0, status: 'running', currentTrack: '' };
+  renderJobs();
+
+  if (jobPoller) return; // Already polling
+  jobPoller = setInterval(pollAllJobs, 1500);
+}
+
+async function pollAllJobs() {
+  const runningIds = Object.keys(activeJobs).filter(id => activeJobs[id].status === 'running');
+
+  if (runningIds.length === 0) {
+    clearInterval(jobPoller);
+    jobPoller = null;
+    return;
+  }
+
+  for (const id of runningIds) {
+    try {
+      const r    = await fetch(`${BACKEND}/status/${id}`);
+      const data = await r.json();
+      const prev = activeJobs[id];
+
+      // Figure out what track is currently downloading
+      let currentTrack = '';
+      if (data.files && data.files.length > 0) {
+        currentTrack = data.files[data.files.length - 1].title;
+      }
+
+      activeJobs[id] = {
+        ...prev,
+        done:         data.done || 0,
+        total:        data.total || 0,
+        status:       data.status || 'running',
+        currentTrack,
+      };
+
+      if (data.status === 'done') {
+        toast(`✓ "${prev.name}" — ${data.files.length} songs downloaded!`, 'success');
+        // Keep in list for a bit then remove
+        setTimeout(() => {
+          delete activeJobs[id];
+          renderJobs();
+          refreshLibrary();
+        }, 5000);
+        refreshLibrary();
+      }
+    } catch {}
+  }
+  renderJobs();
+}
+
+// ── Modal ──────────────────────────────────────────────────────────────────────
+function openModal() {
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('urlInput').focus();
+  clearModalMsg();
+  document.getElementById('metaPreview').classList.remove('visible');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.getElementById('urlInput').value = '';
+  clearModalMsg();
+  document.getElementById('metaPreview').classList.remove('visible');
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+function handleUrlKeydown(e) {
+  if (e.key === 'Enter') startDownload();
+}
+
+function onUrlInput() {
+  clearModalMsg();
+  document.getElementById('metaPreview').classList.remove('visible');
+}
+
+function clearModalMsg() {
+  const el = document.getElementById('modalMsg');
+  el.className = 'msg hidden';
+  el.textContent = '';
+}
+
+function showModalMsg(text, type) {
+  const el = document.getElementById('modalMsg');
+  el.className = `msg ${type}`;
+  el.innerHTML = text;
+}
+
+async function fetchMetadata() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { showModalMsg('Please paste a URL first.', 'error'); return; }
+
+  const btn = document.getElementById('previewBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="border-color:rgba(255,255,255,0.2);border-top-color:var(--text)"></span>';
+  clearModalMsg();
+
+  try {
+    const r = await fetch(`${BACKEND}/metadata`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+
+    document.getElementById('metaName').textContent  = data.name;
+    document.getElementById('metaCount').innerHTML   = `<span>${data.total}</span> track${data.total !== 1 ? 's' : ''} found`;
+    document.getElementById('metaPreview').classList.add('visible');
+  } catch (e) {
+    showModalMsg(`<strong>Error:</strong> ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Preview';
+  }
+}
+
+async function startDownload() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { showModalMsg('Please paste a URL first.', 'error'); return; }
+
+  const btn = document.getElementById('downloadBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Starting…`;
+  clearModalMsg();
+
+  try {
+    const r = await fetch(`${BACKEND}/download`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+
+    const jobId = data.job_id;
+    const name  = data.name;
+    const total = data.total;
+
+    closeModal();
+    toast(`Started downloading "${name}" — ${total} tracks`, 'success');
+    startJobPolling(jobId, name);
+
+  } catch (e) {
+    showModalMsg(`<strong>Failed:</strong> ${e.message}`, 'error');
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download`;
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<div class="toast-dot"></div>${esc(msg)}`;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4200);
+}
+
+// ── Keyboard shortcut ──────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openModal(); }
+});
+
+function showView(v) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+</script>
+</body>
+</html>
