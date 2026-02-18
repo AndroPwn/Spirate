@@ -187,11 +187,10 @@ def download_track(track: dict, out_dir: Path) -> Path:
         yt_url  = results[0].watch_url
 
     ydl_opts = _yt_opts({
-        "format": "bestaudio/best/worstaudio",
+        "format": "140/m4a/bestaudio/best",
         "outtmpl": str(mp3_path.with_suffix(".%(ext)s")),
         "postprocessors": [{"key": "FFmpegExtractAudio",
                              "preferredcodec": "mp3", "preferredquality": "192"}],
-        "extractor_args": {"youtube": {"formats": ["missing_pot"]}},
     })
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([yt_url])
