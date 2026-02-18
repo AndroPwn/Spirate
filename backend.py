@@ -17,7 +17,7 @@ Run:
 
 import os, re, uuid, logging, threading
 from pathlib import Path
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from pytubefix import Search
@@ -235,6 +235,12 @@ def _worker(job_id, tracks, out_dir):
 # ══════════════════════════════════════════════════════════════════════════════
 # API routes
 # ══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/")
+def index():
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'localvibes.html')
+    return send_file(html_path)
+
 
 @app.get("/health")
 def health():
