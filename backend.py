@@ -125,7 +125,7 @@ def _sp_album(url):
 # ── YouTube / YouTube Music ────────────────────────────────────────────────────
 
 def _yt_playlist(url):
-    with yt_dlp.YoutubeDL({"quiet": True, "extract_flat": True, "no_warnings": True}) as ydl:
+    with yt_dlp.YoutubeDL(_yt_opts({"extract_flat": True})) as ydl:
         info = ydl.extract_info(url, download=False)
     name    = info.get("title", "Playlist")
     tracks  = []
@@ -143,7 +143,7 @@ def _yt_playlist(url):
 
 
 def _yt_single(url):
-    with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True, "no_warnings": True}) as ydl:
+    with yt_dlp.YoutubeDL(_yt_opts({"skip_download": True})) as ydl:
         info = ydl.extract_info(url, download=False)
     title  = info.get("title", "Unknown")
     artist = info.get("uploader") or info.get("channel") or "Unknown"
@@ -164,7 +164,13 @@ def _thumb(thumbs):
 # Downloader
 # ══════════════════════════════════════════════════════════════════════════════
 
-def safe(s): return re.sub(r'[\\/*?:"<>|]', "_", s).strip()
+COOKIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
+COOKIES_OPTS = {"cookiefile": COOKIES_FILE} if os.path.exists(COOKIES_FILE) else {}
+
+def _yt_opts(extra=None):
+    opts = {"quiet": True, "no_warnings": True, **COOKIES_OPTS}
+    if extra: opts.update(extra)
+    return opts
 
 
 def download_track(track: dict, out_dir: Path) -> Path:
@@ -180,13 +186,12 @@ def download_track(track: dict, out_dir: Path) -> Path:
         if not results: raise RuntimeError(f"No results: {q}")
         yt_url  = results[0].watch_url
 
-    ydl_opts = {
+    ydl_opts = _yt_opts({
         "format": "bestaudio/best",
         "outtmpl": str(mp3_path.with_suffix(".%(ext)s")),
-        "quiet": True, "no_warnings": True,
         "postprocessors": [{"key": "FFmpegExtractAudio",
                              "preferredcodec": "mp3", "preferredquality": "192"}],
-    }
+    })
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([yt_url])
 
