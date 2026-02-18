@@ -1,8 +1,6 @@
 flask
-flask-cors
 spotipy
 yt-dlp
 mutagen
 requests
 pytubefix
-nodejs-bin
