@@ -1401,7 +1401,7 @@ function renderJobs() {
         <div class="job-progress-track">
           <div class="job-progress-fill" style="width:${pct}%"></div>
         </div>
-        <div class="job-track-name">${j.currentTrack ? '↳ ' + esc(j.currentTrack) : (j.status === 'done' ? '✓ Completed' : 'Starting…')}</div>
+        <div class="job-track-name">${j.currentTrack ? '↳ ' + esc(j.currentTrack) : (j.status === 'done' ? `✓ Completed — <a href="${BACKEND}/download-zip/${id}" style="color:var(--accent);text-decoration:none;font-weight:700" download>⬇ Download ZIP</a>` : 'Starting…')}</div>
       </div>`;
   }).join('');
 }
@@ -1452,12 +1452,11 @@ async function pollAllJobs() {
 
       if (data.status === 'done') {
         toast(`✓ "${prev.name}" — ${data.files.length} songs downloaded!`, 'success');
-        // Keep in list for a bit then remove
         setTimeout(() => {
           delete activeJobs[id];
           renderJobs();
           refreshLibrary();
-        }, 5000);
+        }, 30000); // keep for 30s so user can download zip
         refreshLibrary();
       }
     } catch {}
