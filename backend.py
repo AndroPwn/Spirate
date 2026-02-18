@@ -1,34 +1,43 @@
-"""
-LocalVibes Backend - Fixed for Render
-=====================================
-Includes cookie support for YouTube to bypass bot detection.
-"""
-
 import os, re, uuid, logging, threading
 from pathlib import Path
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import yt_dlp
-from mutagen.id3 import ID3, APIC, TIT2, TPE1, TALB, TRCK, ID3NoHeaderError
 import requests as req
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-# Ensure these are set in your Render Environment Variables
-CLIENT_ID     = os.getenv("SPOTIFY_CLIENT_ID", "YOUR_ID")
-CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "YOUR_SECRET")
+# NOTE: Set these in Render -> Dashboard -> Settings -> Environment Variables
+CLIENT_ID     = os.getenv("SPOTIFY_CLIENT_ID", "your_id_here")
+CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "your_secret_here")
 DOWNLOAD_DIR  = Path(os.getenv("DOWNLOAD_DIR", "./downloads"))
 PORT          = int(os.getenv("PORT", 8888))
-COOKIE_FILE   = "cookies.txt" # The file you uploaded 
+COOKIE_FILE   = "cookies.txt" 
 
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app) # Allows your HTML to talk to this Python code without getting blocked
 jobs = {}
 
-# ── Spotify Setup ──────────────────────────────────────────────────────────────
+# ── SERVING THE UI (Fixes "Not Found") ────────────────────────────────────────
+
+@app.route('/')
+def serve_ui():
+    # This serves your MAIN file. 
+    # Ensure your file is named 'localvibes.html' in your folder!
+    return send_from_directory('.', 'localvibes.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    # This serves your CSS, JS, or images automatically
+    return send_from_directory('.', path)
+
+# ── LOGIC ─────────────────────────────────────────────────────────────────────
+
 auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
 sp = spotipy.Spotify(auth_manager=auth_manager)
 
@@ -37,55 +46,40 @@ def safe(name): return re.sub(r'[\\/*?:"<>|]', "", str(name))
 def get_tracks(url):
     """Fetches track metadata from Spotify or YouTube."""
     if "spotify.com" in url:
+        # IMPORTANT: Spotify playlists MUST BE PUBLIC for the server to see them.
         if "track" in url:
             t = sp.track(url)
-            return t['name'], [{"title": t['name'], "artist": t['artists'][0]['name'], 
-                               "album": t['album']['name'], "art": t['album']['images'][0]['url']}]
-        elif "album" in url:
-            a = sp.album(url)
-            return a['name'], [{"title": t['name'], "artist": t['artists'][0]['name'], 
-                                "album": a['name'], "art": a['images'][0]['url']} for t in a['tracks']['items']]
+            return t['name'], [{"title": t['name'], "artist": t['artists'][0]['name'], "album": t['album']['name'], "art": t['album']['images'][0]['url']}]
         elif "playlist" in url:
             p = sp.playlist(url)
-            return p['name'], [{"title": i['track']['name'], "artist": i['track']['artists'][0]['name'], 
-                                "album": i['track']['album']['name'], "art": i['track']['album']['images'][0]['url']} 
-                               for i in p['tracks']['items'] if i['track']]
+            return p['name'], [{"title": i['track']['name'], "artist": i['track']['artists'][0]['name'], "album": i['track']['album']['name'], "art": i['track']['album']['images'][0]['url']} for i in p['tracks']['items'] if i['track']]
     
-    # YouTube / YouTube Music logic with Cookies
-    ydl_opts = {
-        'quiet': True, 
-        'extract_flat': True, 
-        'cookiefile': COOKIE_FILE # <--- CRITICAL FIX [cite: 2, 3]
-    }
+    # YouTube Logic with your Cookies
+    ydl_opts = {'quiet': True, 'extract_flat': True, 'cookiefile': COOKIE_FILE}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         meta = ydl.extract_info(url, download=False)
-        title = meta.get('title', 'YouTube Download')
+        title = meta.get('title', 'Download')
         entries = meta.get('entries', [meta])
         return title, [{"title": e.get('title'), "artist": e.get('uploader', 'Unknown'), "url": e.get('url') or e.get('webpage_url')} for e in entries]
 
 def _worker(job_id, tracks, out_dir):
-    """Background downloader."""
     out_dir.mkdir(parents=True, exist_ok=True)
     for i, track in enumerate(tracks):
         try:
-            search_query = f"{track['title']} {track['artist']} lyrics"
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'outtmpl': str(out_dir / f"{safe(track['title'])}.%(ext)s"),
-                'cookiefile': COOKIE_FILE, # <--- CRITICAL FIX [cite: 2, 3]
+                'cookiefile': COOKIE_FILE, # Bypasses the "Sign in" bot check
                 'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}],
                 'quiet': True,
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([track.get('url') or f"ytsearch:{search_query}"])
-            
-            # Update job status
+                search = track.get('url') or f"ytsearch:{track['title']} {track['artist']} lyrics"
+                ydl.download([search])
             jobs[job_id]["done"] += 1
-            log.info(f"Downloaded: {track['title']}")
         except Exception as e:
-            log.error(f"Failed {track['title']}: {e}")
+            log.error(f"Error: {e}")
             jobs[job_id]["failed"].append(track['title'])
-    
     jobs[job_id]["status"] = "completed"
 
 @app.route("/download", methods=["POST"])
@@ -93,12 +87,10 @@ def download():
     data = request.get_json(silent=True) or {}
     url = data.get("url", "").strip()
     if not url: return jsonify({"error": "No URL provided"}), 400
-    
     try:
         name, tracks = get_tracks(url)
         job_id = str(uuid.uuid4())[:8]
         jobs[job_id] = {"status": "running", "name": name, "total": len(tracks), "done": 0, "failed": []}
-        
         threading.Thread(target=_worker, args=(job_id, tracks, DOWNLOAD_DIR / safe(name)), daemon=True).start()
         return jsonify({"job_id": job_id, "name": name, "total": len(tracks)})
     except Exception as e:
